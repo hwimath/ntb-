@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NTB Challenge — 학년별 100제</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root{ --bg:#F7F7F7; --text:#333; --accent:#C4A484; --accent-hover:#b89878; --border:#EAEAEA; --muted:#AAAAAA; }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:Inter, "Noto Sans KR", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif}
+    .app{max-width:520px;margin:0 auto;min-height:100%;background:#fff;display:flex;flex-direction:column;position:relative;box-shadow:0 10px 40px rgba(0,0,0,.05)}
+    header{padding:28px 24px;border-bottom:1px solid var(--border)}
+    h1{font-family:"Noto Sans KR", Inter, sans-serif;margin:0;font-size:1.6rem}
+
+    .view{display:none;flex:1;padding:24px;animation:fade .35s ease}
+    .view.active{display:flex;flex-direction:column;gap:16px}
+    @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+    .btn{appearance:none;border:none;border-radius:12px;padding:14px 16px;font-weight:700;cursor:pointer;transition:.2s}
+    .btn-primary{background:var(--accent);color:#fff}
+    .btn-primary:hover{background:var(--accent-hover)}
+    .btn-ghost{background:#f4f4f4;color:var(--text)}
+    .btn-ghost:hover{background:#e9e9e9}
+    .btn-muted{background:transparent;color:var(--muted)}
+    .btn-danger{background:#f8e4e4;color:#b21919}
+
+    .stack{display:flex;flex-direction:column;gap:12px}
+    .grid{display:grid;gap:10px}
+    .grid.cols-2{grid-template-columns:1fr 1fr}
+
+    .choices{display:grid;gap:10px;margin-top:6px}
+    .choices.cols-3{grid-template-columns:repeat(1, 1fr)}
+    .choices.cols-5{grid-template-columns:repeat(1, 1fr)}
+    .choices.cols-7{grid-template-columns:repeat(1, 1fr)}
+    @media (min-width:420px){
+      .choices.cols-3{grid-template-columns:repeat(3, 1fr)}
+      .choices.cols-5{grid-template-columns:repeat(3, 1fr)}
+      .choices.cols-7{grid-template-columns:repeat(3, 1fr)}
+    }
+
+    .word{font-family:"Noto Sans KR", Inter, sans-serif;font-size:2.6rem;font-weight:800;text-align:center;margin:6px 0 12px}
+    .sub{font-size:.92rem;color:#888;text-align:center}
+    .feedback{min-height:26px;text-align:center;font-weight:800}
+
+    .bar{display:flex;justify-content:space-between;align-items:center;gap:10px}
+    .pill{font-size:.88rem;background:#f3f3f3;border:1px solid var(--border);border-radius:999px;padding:6px 10px}
+
+    .row{display:flex;gap:10px;align-items:center}
+    .spacer{flex:1}
+    .hidden{display:none !important}
+    .correct{border:2px solid #23a55b !important}
+    .wrong{border:2px solid #d93025 !important}
+      #home-view{justify-content:center}
+    #home-view .home-stack{margin:0 auto;max-width:420px;gap:16px}
+    #home-view .home-stack .grid{margin-top:8px}
+    /* tighten level view spacing */
+    #level-view{justify-content:flex-start}
+    #level-view .level-stack{margin-top:12px}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header><h1>NTB Challenge</h1></header>
+
+    <!-- 1) 학년(세트) 선택 -->
+    <section id="home-view" class="view active">
+      <div class="stack home-stack">
+        <p class="sub">원하는 세트를 선택하세요 (각 100문제)</p>
+        <div class="grid cols-2">
+          <button class="btn btn-primary" data-set="elem">초등 100개</button>
+          <button class="btn btn-ghost" data-set="mid">중등 100개</button>
+          <button class="btn btn-ghost" data-set="high">고등 100개</button>
+          <button class="btn btn-ghost" data-set="uni">대학 100개</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2) 단계 선택 -->
+    <section id="level-view" class="view">
+      <div class="bar"><div id="level-title" class="pill">—</div><div class="spacer"></div><button id="back-home" class="btn btn-ghost">← 뒤로</button></div>
+      <div class="stack level-stack">
+        <p class="sub">난이도를 선택하세요 (보기 개수)</p>
+        <button class="btn btn-primary" data-level="1">1단계 (3지선다)</button>
+        <button class="btn btn-ghost" data-level="2">2단계 (5지선다)</button>
+        <button class="btn btn-ghost" data-level="3">3단계 (7지선다)</button>
+      </div>
+    </section>
+
+    <!-- 3) 퀴즈 화면 -->
+    <section id="quiz-view" class="view">
+      <div class="bar">
+        <div id="crumb" class="pill">—</div>
+        <div class="row">
+          <button id="tts-btn" class="btn btn-ghost" title="다시 듣기">🔊</button>
+        </div>
+      </div>
+      <div id="word-display" class="word">—</div>
+      <div id="choices" class="choices cols-3 hidden"></div>
+      <div class="row" style="margin-top:10px">
+        <button id="idk-btn" class="btn btn-ghost">모름</button>
+        <button id="show-choices-btn" class="btn btn-ghost" title="보기 펼치기">보기</button>
+        <div class="spacer"></div>
+        <button id="next-btn" class="btn btn-primary" disabled>다음 ▶︎</button>
+      </div>
+      <div id="feedback" class="feedback"></div>
+      <p class="sub" style="margin-top:auto">정답을 고르거나 <strong>모름</strong>을 누르면 정답이 표시됩니다. (오답은 큐 뒤로 재출제)</p>
+    </section>
+  </div>
+
+  <script>
+  // ===== 0) 데이터셋 (각 100개) =====
+  const DATASETS = {
+    elem: {
+      name: '초등 100개',
+      words: [
+        {english:'apple', korean:'사과'},
+        {english:'banana', korean:'바나나'},
+        {english:'cat', korean:'고양이'},
+        {english:'dog', korean:'개'},
+        {english:'bird', korean:'새'},
+        {english:'fish', korean:'물고기'},
+        {english:'book', korean:'책'},
+        {english:'pen', korean:'펜'},
+        {english:'bag', korean:'가방'},
+        {english:'chair', korean:'의자'},
+        {english:'table', korean:'탁자'},
+        {english:'bed', korean:'침대'},
+        {english:'cup', korean:'컵'},
+        {english:'milk', korean:'우유'},
+        {english:'water', korean:'물'},
+        {english:'bread', korean:'빵'},
+        {english:'rice', korean:'쌀, 밥'},
+        {english:'egg', korean:'달걀'},
+        {english:'school', korean:'학교'},
+        {english:'teacher', korean:'선생님'},
+        {english:'student', korean:'학생'},
+        {english:'friend', korean:'친구'},
+        {english:'family', korean:'가족'},
+        {english:'mother', korean:'어머니'},
+        {english:'father', korean:'아버지'},
+        {english:'sister', korean:'여자 형제'},
+        {english:'brother', korean:'남자 형제'},
+        {english:'house', korean:'집'},
+        {english:'room', korean:'방'},
+        {english:'door', korean:'문'},
+        {english:'window', korean:'창문'},
+        {english:'car', korean:'자동차'},
+        {english:'bus', korean:'버스'},
+        {english:'train', korean:'기차'},
+        {english:'bike', korean:'자전거'},
+        {english:'street', korean:'거리'},
+        {english:'park', korean:'공원'},
+        {english:'tree', korean:'나무'},
+        {english:'flower', korean:'꽃'},
+        {english:'sun', korean:'태양'},
+        {english:'moon', korean:'달'},
+        {english:'star', korean:'별'},
+        {english:'sky', korean:'하늘'},
+        {english:'rain', korean:'비'},
+        {english:'snow', korean:'눈'},
+        {english:'cloud', korean:'구름'},
+        {english:'day', korean:'낮, 하루'},
+        {english:'night', korean:'밤'},
+        {english:'morning', korean:'아침'},
+        {english:'evening', korean:'저녁'},
+        {english:'happy', korean:'행복한'},
+        {english:'sad', korean:'슬픈'},
+        {english:'big', korean:'큰'},
+        {english:'small', korean:'작은'},
+        {english:'long', korean:'긴'},
+        {english:'short', korean:'짧은'},
+        {english:'hot', korean:'뜨거운'},
+        {english:'cold', korean:'차가운'},
+        {english:'good', korean:'좋은'},
+        {english:'bad', korean:'나쁜'},
+        {english:'up', korean:'위로'},
+        {english:'down', korean:'아래로'},
+        {english:'left', korean:'왼쪽'},
+        {english:'right', korean:'오른쪽'},
+        {english:'run', korean:'달리다'},
+        {english:'walk', korean:'걷다'},
+        {english:'jump', korean:'점프하다'},
+        {english:'sit', korean:'앉다'},
+        {english:'stand', korean:'서다'},
+        {english:'eat', korean:'먹다'},
+        {english:'drink', korean:'마시다'},
+        {english:'read', korean:'읽다'},
+        {english:'write', korean:'쓰다'},
+        {english:'play', korean:'놀다, 연주하다'},
+        {english:'sing', korean:'노래하다'},
+        {english:'dance', korean:'춤추다'},
+        {english:'open', korean:'열다'},
+        {english:'close', korean:'닫다'},
+        {english:'come', korean:'오다'},
+        {english:'go', korean:'가다'},
+        {english:'see', korean:'보다'},
+        {english:'hear', korean:'듣다'},
+        {english:'talk', korean:'말하다'},
+        {english:'listen', korean:'듣다'},
+        {english:'give', korean:'주다'},
+        {english:'take', korean:'가져가다'},
+        {english:'make', korean:'만들다'},
+        {english:'find', korean:'찾다'},
+        {english:'help', korean:'돕다'},
+        {english:'love', korean:'사랑하다'},
+        {english:'like', korean:'좋아하다'},
+        {english:'want', korean:'원하다'},
+        {english:'need', korean:'필요하다'},
+        {english:'wash', korean:'씻다'},
+        {english:'clean', korean:'청소하다'},
+        {english:'stop', korean:'멈추다'},
+        {english:'start', korean:'시작하다'},
+        {english:'laugh', korean:'웃다'},
+        {english:'cry', korean:'울다'},
+        {english:'sleep', korean:'자다'}
+      ]
+    },
+    mid: {
+      name: '중등 100개',
+      words: [
+        {english:'ability', korean:'능력'},
+        {english:'accident', korean:'사고'},
+        {english:'achieve', korean:'성취하다'},
+        {english:'active', korean:'활동적인'},
+        {english:'advice', korean:'조언'},
+        {english:'afford', korean:'~할 여유가 있다'},
+        {english:'agree', korean:'동의하다'},
+        {english:'allow', korean:'허락하다'},
+        {english:'almost', korean:'거의'},
+        {english:'alone', korean:'혼자인'},
+        {english:'along', korean:'~을 따라'},
+        {english:'already', korean:'이미'},
+        {english:'although', korean:'비록 ~일지라도'},
+        {english:'amount', korean:'양, 액수'},
+        {english:'ancient', korean:'고대의'},
+        {english:'announce', korean:'발표하다'},
+        {english:'appear', korean:'나타나다'},
+        {english:'apply', korean:'신청하다, 적용하다'},
+        {english:'area', korean:'지역, 영역'},
+        {english:'argue', korean:'논쟁하다'},
+        {english:'arrange', korean:'정리하다, 배열하다'},
+        {english:'arrive', korean:'도착하다'},
+        {english:'article', korean:'기사, 물품'},
+        {english:'attend', korean:'참석하다'},
+        {english:'avoid', korean:'피하다'},
+        {english:'balance', korean:'균형'},
+        {english:'behavior', korean:'행동'},
+        {english:'belong', korean:'속하다'},
+        {english:'benefit', korean:'이익, 혜택'},
+        {english:'beyond', korean:'~을 넘어'},
+        {english:'birth', korean:'탄생'},
+        {english:'blame', korean:'비난하다'},
+        {english:'block', korean:'막다, 블록'},
+        {english:'blood', korean:'피'},
+        {english:'board', korean:'판, 탑승하다'},
+        {english:'borrow', korean:'빌리다'},
+        {english:'brave', korean:'용감한'},
+        {english:'breathe', korean:'숨쉬다'},
+        {english:'bridge', korean:'다리'},
+        {english:'bright', korean:'밝은'},
+        {english:'bring', korean:'가져오다'},
+        {english:'build', korean:'짓다'},
+        {english:'burn', korean:'태우다'},
+        {english:'business', korean:'사업'},
+        {english:'busy', korean:'바쁜'},
+        {english:'captain', korean:'선장, 주장'},
+        {english:'carry', korean:'나르다'},
+        {english:'cause', korean:'원인, ~을 일으키다'},
+        {english:'century', korean:'세기'},
+        {english:'certain', korean:'확실한'},
+        {english:'chance', korean:'기회'},
+        {english:'change', korean:'변화, 바꾸다'},
+        {english:'character', korean:'성격, 등장인물'},
+        {english:'check', korean:'확인하다, 수표'},
+        {english:'choose', korean:'선택하다'},
+        {english:'clear', korean:'명확한, 깨끗한'},
+        {english:'climb', korean:'오르다'},
+        {english:'close', korean:'닫다, 가까운'},
+        {english:'cloud', korean:'구름'},
+        {english:'collect', korean:'모으다'},
+        {english:'common', korean:'흔한'},
+        {english:'compare', korean:'비교하다'},
+        {english:'complete', korean:'완성하다'},
+        {english:'condition', korean:'상태, 조건'},
+        {english:'connect', korean:'연결하다'},
+        {english:'contain', korean:'포함하다'},
+        {english:'continue', korean:'계속하다'},
+        {english:'control', korean:'통제하다'},
+        {english:'copy', korean:'복사하다'},
+        {english:'corner', korean:'모퉁이'},
+        {english:'correct', korean:'올바른, 수정하다'},
+        {english:'cost', korean:'비용'},
+        {english:'count', korean:'세다'},
+        {english:'country', korean:'나라, 시골'},
+        {english:'cover', korean:'덮다'},
+        {english:'create', korean:'창조하다'},
+        {english:'culture', korean:'문화'},
+        {english:'customer', korean:'손님, 고객'},
+        {english:'daily', korean:'매일의'},
+        {english:'damage', korean:'손해, 손상시키다'},
+        {english:'dangerous', korean:'위험한'},
+        {english:'decide', korean:'결정하다'},
+        {english:'decrease', korean:'줄이다'},
+        {english:'deep', korean:'깊은'},
+        {english:'deliver', korean:'배달하다'},
+        {english:'depend', korean:'의존하다'},
+        {english:'describe', korean:'묘사하다'},
+        {english:'design', korean:'설계하다'},
+        {english:'develop', korean:'발전하다'},
+        {english:'difference', korean:'차이'},
+        {english:'difficult', korean:'어려운'},
+        {english:'direction', korean:'방향'},
+        {english:'disappear', korean:'사라지다'},
+        {english:'discover', korean:'발견하다'},
+        {english:'distance', korean:'거리'},
+        {english:'divide', korean:'나누다'},
+        {english:'doctor', korean:'의사'},
+        {english:'double', korean:'두 배의'},
+        {english:'draw', korean:'그리다'},
+        {english:'dream', korean:'꿈, 꿈꾸다'}
+      ]
+    },
+    high: {
+      name: '고등 100개',
+      words: [
+        {english:'abandon', korean:'버리다, 포기하다'},
+        {english:'abstract', korean:'추상적인'},
+        {english:'abuse', korean:'남용하다, 학대하다'},
+        {english:'accompany', korean:'동행하다'},
+        {english:'accomplish', korean:'이루다'},
+        {english:'accumulate', korean:'축적하다'},
+        {english:'accurate', korean:'정확한'},
+        {english:'adapt', korean:'적응하다'},
+        {english:'adequate', korean:'충분한'},
+        {english:'adjust', korean:'조정하다'},
+        {english:'advocate', korean:'옹호하다'},
+        {english:'alter', korean:'변경하다'},
+        {english:'ambiguous', korean:'애매한'},
+        {english:'analyze', korean:'분석하다'},
+        {english:'anticipate', korean:'예상하다'},
+        {english:'apparent', korean:'분명한'},
+        {english:'appropriate', korean:'적절한'},
+        {english:'approve', korean:'승인하다'},
+        {english:'artificial', korean:'인공의'},
+        {english:'assign', korean:'할당하다'},
+        {english:'assume', korean:'가정하다'},
+        {english:'assure', korean:'보장하다'},
+        {english:'attach', korean:'붙이다'},
+        {english:'attempt', korean:'시도하다'},
+        {english:'attain', korean:'달성하다'},
+        {english:'aware', korean:'알고 있는'},
+        {english:'barrier', korean:'장벽'},
+        {english:'benefit', korean:'이익, 혜택'},
+        {english:'burden', korean:'부담'},
+        {english:'calculate', korean:'계산하다'},
+        {english:'candidate', korean:'후보자'},
+        {english:'capacity', korean:'수용력, 능력'},
+        {english:'capture', korean:'붙잡다'},
+        {english:'cease', korean:'중단하다'},
+        {english:'challenge', korean:'도전'},
+        {english:'circumstance', korean:'상황'},
+        {english:'collapse', korean:'붕괴하다'},
+        {english:'colleague', korean:'동료'},
+        {english:'commit', korean:'저지르다, 헌신하다'},
+        {english:'compensate', korean:'보상하다'},
+        {english:'compile', korean:'편집하다'},
+        {english:'complain', korean:'불평하다'},
+        {english:'component', korean:'구성 요소'},
+        {english:'comprise', korean:'구성하다'},
+        {english:'concentrate', korean:'집중하다'},
+        {english:'conclude', korean:'결론짓다'},
+        {english:'concrete', korean:'구체적인'},
+        {english:'conduct', korean:'수행하다, 행동'},
+        {english:'confirm', korean:'확인하다'},
+        {english:'conflict', korean:'갈등, 충돌'},
+        {english:'conform', korean:'순응하다'},
+        {english:'consequence', korean:'결과'},
+        {english:'considerable', korean:'상당한'},
+        {english:'consist', korean:'이루어져 있다'},
+        {english:'constant', korean:'지속적인'},
+        {english:'construct', korean:'건설하다'},
+        {english:'consume', korean:'소비하다'},
+        {english:'contribute', korean:'기여하다'},
+        {english:'controversy', korean:'논란'},
+        {english:'convenient', korean:'편리한'},
+        {english:'convert', korean:'전환하다'},
+        {english:'cooperate', korean:'협력하다'},
+        {english:'cope', korean:'대처하다'},
+        {english:'corporate', korean:'기업의'},
+        {english:'correspond', korean:'일치하다'},
+        {english:'crucial', korean:'결정적인'},
+        {english:'cultivate', korean:'경작하다, 개발하다'},
+        {english:'dedicate', korean:'헌신하다'},
+        {english:'defend', korean:'방어하다'},
+        {english:'demonstrate', korean:'시연하다, 입증하다'},
+        {english:'deny', korean:'부인하다'},
+        {english:'depart', korean:'떠나다'},
+        {english:'depress', korean:'우울하게 하다'},
+        {english:'derive', korean:'끌어내다, 유래하다'},
+        {english:'deserve', korean:'~할 가치가 있다'},
+        {english:'detect', korean:'감지하다'},
+        {english:'determine', korean:'결정하다'},
+        {english:'diminish', korean:'줄어들다'},
+        {english:'discipline', korean:'규율, 훈련'},
+        {english:'distinguish', korean:'구별하다'},
+        {english:'distribute', korean:'분배하다'},
+        {english:'domestic', korean:'국내의, 가정의'},
+        {english:'dominate', korean:'지배하다'},
+        {english:'eliminate', korean:'제거하다'},
+        {english:'emerge', korean:'나타나다'},
+        {english:'emphasize', korean:'강조하다'},
+        {english:'enable', korean:'가능하게 하다'},
+        {english:'encounter', korean:'마주치다'},
+        {english:'enhance', korean:'향상시키다'},
+        {english:'ensure', korean:'보장하다'},
+        {english:'equivalent', korean:'동등한'},
+        {english:'establish', korean:'설립하다'},
+        {english:'evaluate', korean:'평가하다'},
+        {english:'evolve', korean:'진화하다'},
+        {english:'exceed', korean:'초과하다'},
+        {english:'exclude', korean:'제외하다'},
+        {english:'expand', korean:'확장하다'},
+        {english:'exploit', korean:'이용하다, 착취하다'},
+        {english:'expose', korean:'드러내다'},
+        {english:'extend', korean:'연장하다'}
+      ]
+    },
+    uni: {
+      name: '대학 100개',
+      words: [
+        {english:'abolish', korean:'폐지하다'},
+        {english:'abrupt', korean:'갑작스러운'},
+        {english:'abundant', korean:'풍부한'},
+        {english:'accessible', korean:'접근 가능한'},
+        {english:'accommodate', korean:'수용하다, 편의를 제공하다'},
+        {english:'accompany', korean:'동반하다'},
+        {english:'accomplish', korean:'완수하다'},
+        {english:'accumulate', korean:'축적하다'},
+        {english:'acquisition', korean:'습득, 취득'},
+        {english:'adjacent', korean:'인접한'},
+        {english:'advocate', korean:'옹호하다'},
+        {english:'aggregate', korean:'모으다, 총합'},
+        {english:'allocate', korean:'할당하다'},
+        {english:'alter', korean:'변경하다'},
+        {english:'ambiguous', korean:'모호한'},
+        {english:'analogy', korean:'유사, 비유'},
+        {english:'analyze', korean:'분석하다'},
+        {english:'anomaly', korean:'변칙, 예외'},
+        {english:'apparent', korean:'명백한'},
+        {english:'applicable', korean:'적용 가능한'},
+        {english:'appreciate', korean:'감사하다, 감상하다'},
+        {english:'arbitrary', korean:'임의의, 독단적인'},
+        {english:'aspect', korean:'측면'},
+        {english:'assemble', korean:'모으다, 조립하다'},
+        {english:'assess', korean:'평가하다'},
+        {english:'assign', korean:'부과하다, 할당하다'},
+        {english:'assume', korean:'가정하다'},
+        {english:'attain', korean:'달성하다'},
+        {english:'attribute', korean:'~의 결과로 보다'},
+        {english:'authorize', korean:'승인하다'},
+        {english:'autonomous', korean:'자율적인'},
+        {english:'behalf', korean:'이익, 편'},
+        {english:'beneficial', korean:'유익한'},
+        {english:'bias', korean:'편견'},
+        {english:'bulk', korean:'대부분, 큰 규모'},
+        {english:'capacity', korean:'용량, 능력'},
+        {english:'cease', korean:'중단하다'},
+        {english:'coherent', korean:'일관된'},
+        {english:'coincide', korean:'동시에 일어나다'},
+        {english:'collapse', korean:'붕괴하다'},
+        {english:'colleague', korean:'동료'},
+        {english:'commence', korean:'시작하다'},
+        {english:'commodity', korean:'상품'},
+        {english:'compatible', korean:'양립 가능한'},
+        {english:'compile', korean:'편집하다'},
+        {english:'complement', korean:'보완하다'},
+        {english:'comprehensive', korean:'종합적인'},
+        {english:'comprise', korean:'포함하다, 구성하다'},
+        {english:'compulsory', korean:'의무적인'},
+        {english:'conceive', korean:'상상하다, 생각하다'},
+        {english:'concurrent', korean:'동시에 발생하는'},
+        {english:'confer', korean:'상의하다, 수여하다'},
+        {english:'confine', korean:'제한하다'},
+        {english:'confirm', korean:'확인하다'},
+        {english:'conform', korean:'따르다'},
+        {english:'consent', korean:'동의하다'},
+        {english:'consequent', korean:'결과로서 일어나는'},
+        {english:'considerable', korean:'상당한'},
+        {english:'constitute', korean:'구성하다'},
+        {english:'constrain', korean:'강요하다'},
+        {english:'construct', korean:'건설하다'},
+        {english:'consult', korean:'상담하다'},
+        {english:'consume', korean:'소비하다'},
+        {english:'contemporary', korean:'동시대의'},
+        {english:'contradict', korean:'반박하다'},
+        {english:'contrary', korean:'반대의'},
+        {english:'controversial', korean:'논란이 되는'},
+        {english:'convene', korean:'소집하다'},
+        {english:'converse', korean:'대화하다, 반대의'},
+        {english:'convert', korean:'전환하다'},
+        {english:'cooperate', korean:'협력하다'},
+        {english:'coordinate', korean:'조정하다'},
+        {english:'core', korean:'핵심'},
+        {english:'correspond', korean:'일치하다, 해당하다'},
+        {english:'crucial', korean:'결정적인'},
+        {english:'currency', korean:'통화, 유통'},
+        {english:'deduce', korean:'추론하다'},
+        {english:'demonstrate', korean:'입증하다'},
+        {english:'denote', korean:'나타내다'},
+        {english:'derive', korean:'끌어내다, 유래하다'},
+        {english:'detect', korean:'감지하다'},
+        {english:'deviate', korean:'벗어나다'},
+        {english:'differentiate', korean:'구별하다'},
+        {english:'dimension', korean:'차원, 규모'},
+        {english:'diminish', korean:'감소하다'},
+        {english:'discrete', korean:'별개의'},
+        {english:'discriminate', korean:'차별하다, 구별하다'},
+        {english:'dispose', korean:'처리하다'},
+        {english:'distinct', korean:'뚜렷한'},
+        {english:'distort', korean:'왜곡하다'},
+        {english:'distribute', korean:'배포하다'},
+        {english:'diverse', korean:'다양한'},
+        {english:'document', korean:'기록하다'},
+        {english:'domain', korean:'영역'},
+        {english:'domestic', korean:'국내의'},
+        {english:'dominant', korean:'지배적인'},
+        {english:'duration', korean:'지속 기간'},
+        {english:'dynamic', korean:'역동적인'},
+        {english:'eliminate', korean:'제거하다'},
+        {english:'empirical', korean:'경험에 의한'}
+      ]
+    }
+  };
+
+  // ===== 1) 상태 =====
+  const LEVELS = { 1:3, 2:5, 3:7 };
+  let selectedSetKey = null; // 'elem' | 'mid' | 'high' | 'uni'
+  let selectedLevel = 1;
+  let choiceCount = 3;
+
+  let sessionPool = []; // 100개
+  let queue = [];
+  let completed = new Set();
+  let current = null;
+  let locked = false; // 답변 처리 중 입력 잠금
+
+  // ===== 2) 유틸 =====
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+  const shuffle = (arr) => arr.map(v=>[Math.random(),v]).sort((a,b)=>a[0]-b[0]).map(v=>v[1]);
+  const norm = (s) => (s||'').replace(/\s+/g,' ').trim();
+  function speak(text){ if(!window.speechSynthesis) return; speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.lang='en-US'; u.rate=0.95; speechSynthesis.speak(u); }
+
+  // ===== 3) 화면 전환 =====
+  function show(id){ $$('.view').forEach(v=>v.classList.remove('active')); $(id).classList.add('active'); }
+
+  // ===== 4) 퀴즈 로직 =====
+  const crumbEl = $('#crumb');
+  const wordEl = $('#word-display');
+  const choicesEl = $('#choices');
+  const showChoicesBtn = $('#show-choices-btn');
+  const idkBtn = $('#idk-btn');
+  const nextBtn = $('#next-btn');
+  const ttsBtn = $('#tts-btn');
+  const feedback = $('#feedback');
+
+  function updateCrumb(){
+    const setName = DATASETS[selectedSetKey].name;
+    crumbEl.textContent = `${setName} · ${selectedLevel}단계 · 완료 ${completed.size}/${sessionPool.length}`;
+  }
+
+  function makeChoices(correctKorean){
+    const need = choiceCount - 1;
+    const pool = sessionPool.length > choiceCount ? sessionPool : DATASETS[selectedSetKey].words;
+    const distractors = new Set();
+    for(const w of shuffle(pool)){
+      const k = norm(w.korean);
+      if(k && k !== norm(correctKorean)){
+        distractors.add(k);
+        if(distractors.size >= need) break;
+      }
+    }
+    return shuffle([norm(correctKorean), ...distractors]);
+  }
+
+  function renderChoices(options){
+    choicesEl.classList.remove('cols-3','cols-5','cols-7');
+    choicesEl.classList.add(`cols-${choiceCount}`);
+    choicesEl.innerHTML = '';
+    options.forEach(text=>{
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-ghost';
+      btn.style.minHeight = '44px';
+      btn.textContent = text;
+      btn.addEventListener('click', ()=> handleChoice(text, btn));
+      choicesEl.appendChild(btn);
+    });
+  }
+
+  function nextQuestion(){
+    if(queue.length === 0){
+      alert('클리어! 100문제를 모두 완료했습니다 👏');
+      show('#level-view');
+      return;
+    }
+    current = queue.shift();
+    locked = false;
+    feedback.textContent = '';
+    nextBtn.disabled = true;
+    // 숨김 상태로 시작
+    choicesEl.classList.add('hidden');
+    showChoicesBtn.disabled = false;
+    showChoicesBtn.textContent = '보기';
+    // 단어 표시 + 자동 발화
+    wordEl.textContent = current.english;
+    speak(current.english);
+    updateCrumb();
+  }
+
+  function revealChoices(){
+    if(!current) return;
+    const opts = makeChoices(current.korean);
+    renderChoices(opts);
+    choicesEl.classList.remove('hidden');
+    showChoicesBtn.disabled = true;
+    showChoicesBtn.textContent = '보기 표시됨';
+  }
+
+  function lockChoices(){
+    Array.from(choicesEl.children).forEach(b=> b.disabled = true);
+  }
+
+  function handleChoice(selectedKorean, btn){
+    if(locked || !current) return; locked = true;
+    const correct = norm(current.korean);
+    const chosen = norm(selectedKorean);
+    const isCorrect = (chosen === correct);
+
+    lockChoices();
+    // 버튼 하이라이트
+    Array.from(choicesEl.children).forEach(b=>{
+      if(norm(b.textContent)===correct) b.classList.add('correct');
+    });
+    if(btn && !isCorrect) btn.classList.add('wrong');
+
+    if(isCorrect){
+      completed.add(current.english);
+      feedback.style.color = 'green';
+      feedback.textContent = '정답입니다!';
+      updateCrumb();
+      setTimeout(()=> nextQuestion(), 350); // 정답은 자동 진행
+    }else{
+      feedback.style.color = '#d93025';
+      feedback.textContent = `오답입니다. 정답: ${current.korean}`;
+      // 오답은 큐 뒤로
+      queue.push(current);
+      nextBtn.disabled = false; // 사용자가 "다음"을 눌러 진행
+    }
+  }
+
+  function handleIDK(){
+    if(locked || !current) return; locked = true;
+    // 보기 없으면 먼저 펼치기
+    if(choicesEl.classList.contains('hidden')) revealChoices();
+    lockChoices();
+    // 정답 표시
+    const correct = norm(current.korean);
+    Array.from(choicesEl.children).forEach(b=>{
+      if(norm(b.textContent)===correct) b.classList.add('correct');
+    });
+    feedback.style.color = '#e69500';
+    feedback.textContent = `모름 선택! 정답: ${current.korean}`;
+    // 큐 뒤로 보내 재출제
+    queue.push(current);
+    nextBtn.disabled = false; // 다음 버튼으로만 진행
+  }
+
+  // ===== 5) 이벤트 바인딩 =====
+  // 홈 → 세트 선택
+  $$('#home-view [data-set]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      selectedSetKey = btn.dataset.set;
+      $('#level-title').textContent = DATASETS[selectedSetKey].name;
+      show('#level-view');
+    });
+  });
+
+  // 단계 선택
+  $$('#level-view [data-level]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      selectedLevel = Number(btn.dataset.level);
+      choiceCount = LEVELS[selectedLevel] || 3;
+      const { words } = DATASETS[selectedSetKey];
+      sessionPool = words.slice(0, 100).map(w=>({english:w.english, korean:w.korean}));
+      queue = shuffle(sessionPool.slice());
+      completed = new Set();
+      // 초기 UI
+      choicesEl.innerHTML = '';
+      choicesEl.classList.add('hidden');
+      nextBtn.disabled = true;
+      showChoicesBtn.disabled = false; showChoicesBtn.textContent = '보기';
+      show('#quiz-view');
+      nextQuestion();
+    });
+  });
+
+  // 뒤로
+  $('#back-home').addEventListener('click', ()=>{ show('#home-view'); });
+
+  // 보기 버튼
+  showChoicesBtn.addEventListener('click', revealChoices);
+  // 모름
+  idkBtn.addEventListener('click', handleIDK);
+  // 다음
+  nextBtn.addEventListener('click', ()=>{ if(!nextBtn.disabled) nextQuestion(); });
+  // 다시 듣기
+  ttsBtn.addEventListener('click', ()=>{ if(current) speak(current.english); });
+
+  // 시작은 홈
+  show('#home-view');
+  </script>
+</body>
+</html>
